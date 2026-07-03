@@ -48,6 +48,26 @@ export const App = () => {
 
   const isSolved = solutionBoard !== null && boardEquals(board, solutionBoard);
   const duplicateNumberKeys = useMemo(() => findDuplicateNumberKeys(board), [board]);
+  const fireworks = useMemo(() => {
+    const palette = ["#ffd166", "#ff6b6b", "#7bdff2", "#cdb4db", "#9bf6b0", "#f9c74f"];
+
+    return Array.from({ length: 72 }, (_, index) => {
+      const angle = ((index * 37) % 360) * (Math.PI / 180);
+      const radius = 70 + (index % 6) * 24;
+
+      return {
+        id: index,
+        left: `${10 + ((index * 17) % 78)}%`,
+        top: `${12 + ((index * 11) % 70)}%`,
+        dx: Math.cos(angle) * radius,
+        dy: Math.sin(angle) * radius,
+        size: 6 + (index % 4) * 2,
+        color: palette[index % palette.length],
+        delay: (index % 12) * 0.08,
+        duration: 1.6 + (index % 5) * 0.22,
+      };
+    });
+  }, []);
 
   const canPlace = (shape: Point[], startRow: number, startCol: number, ignorePieceId?: string) =>
     shape.every(([deltaRow, deltaCol]) => {
@@ -85,6 +105,7 @@ export const App = () => {
     generationToken.current = token;
 
     setIsGenerating(true);
+    setSolutionBoard(null);
     const runAttempt = (attempt: number) => {
       if (generationToken.current !== token) {
         return;
@@ -471,6 +492,32 @@ export const App = () => {
           "radial-gradient(circle at top left, #25314d 0%, rgba(21, 27, 46, 0.9) 45%, #0f1425 100%)",
       }}
     >
+      <style>{`
+        @keyframes firework-burst {
+          0% {
+            opacity: 0;
+            transform: translate(0, 0) scale(0.2);
+          }
+          18% {
+            opacity: 1;
+          }
+          100% {
+            opacity: 0;
+            transform: translate(var(--dx), var(--dy)) scale(1);
+          }
+        }
+
+        @keyframes solved-pop {
+          0% {
+            opacity: 0;
+            transform: translateY(14px) scale(0.92);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+      `}</style>
       <div style={{ margin: "0 auto", width: "100%" }}>
         <header style={{ marginBottom: "20px" }}>
           <p
@@ -713,6 +760,85 @@ export const App = () => {
           </aside>
         </div>
       </div>
+
+      {isSolved ? (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 20,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(8, 12, 24, 0.76)",
+            backdropFilter: "blur(2px)",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              overflow: "hidden",
+              pointerEvents: "none",
+            }}
+            aria-hidden="true"
+          >
+            {fireworks.map((spark) => (
+              <span
+                key={spark.id}
+                style={
+                  {
+                    position: "absolute",
+                    left: spark.left,
+                    top: spark.top,
+                    width: `${spark.size}px`,
+                    height: `${spark.size}px`,
+                    borderRadius: "999px",
+                    background: spark.color,
+                    boxShadow: `0 0 14px ${spark.color}`,
+                    animationName: "firework-burst",
+                    animationDuration: `${spark.duration}s`,
+                    animationDelay: `${spark.delay}s`,
+                    animationTimingFunction: "ease-out",
+                    animationIterationCount: "infinite",
+                    ["--dx" as string]: `${spark.dx}px`,
+                    ["--dy" as string]: `${spark.dy}px`,
+                  } as CSSProperties
+                }
+              />
+            ))}
+          </div>
+
+          <div
+            style={{
+              position: "relative",
+              zIndex: 1,
+              textAlign: "center",
+              padding: "26px 30px",
+              borderRadius: "24px",
+              background: "rgba(16, 22, 38, 0.85)",
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+              boxShadow: "0 24px 80px rgba(0, 0, 0, 0.45)",
+              animation: "solved-pop 320ms ease-out",
+            }}
+          >
+            <h2
+              style={{
+                margin: "0 0 12px",
+                fontSize: "clamp(2.2rem, 8vw, 5rem)",
+                lineHeight: 1,
+                color: "#fef08a",
+                textShadow: "0 6px 24px rgba(254, 240, 138, 0.38)",
+              }}
+            >
+              Solved!
+            </h2>
+            <button type="button" onClick={startGeneration} style={buttonStyle}>
+              Retry
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
