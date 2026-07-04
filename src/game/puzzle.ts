@@ -1,4 +1,4 @@
-import { BLOCK_SIZE, BOARD_SIZE, CLUE_PIECES } from "./constants";
+import { BLOCK_SIZE, BOARD_SIZE } from "./constants";
 import type { Cell, PieceCell, PlacedPiece, RandomFillArrangement } from "./types";
 import { createEmptyBoard, rotatePieceCells, shuffle } from "./utils";
 
@@ -55,9 +55,12 @@ const getPieceCellsFromBoard = (
   }));
 };
 
-export const createPuzzleFromArrangement = (arrangement: RandomFillArrangement) => {
+export const createPuzzleFromArrangement = (
+  arrangement: RandomFillArrangement,
+  cluePieceCount: number,
+) => {
   const allPieces = Object.values(arrangement.placedPieces);
-  const cluePieces = shuffle(allPieces).slice(0, CLUE_PIECES);
+  const cluePieces = shuffle(allPieces).slice(0, cluePieceCount);
   const cluePieceIds = new Set(cluePieces.map((piece) => piece.pieceInstanceId));
   const fixedPieceIds = new Set(cluePieceIds);
   const sudokuSolution = createSudokuSolution();

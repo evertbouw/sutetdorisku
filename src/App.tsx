@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import {
   BOARD_SIZE,
   CELL_SIZE,
-  CLUE_PIECES,
+  DEFAULT_DIFFICULTY,
+  DIFFICULTY_CLUE_PIECES,
   GENERATION_MAX_RETRIES,
   GENERATION_TIMEOUT_MS,
 } from "./game/constants";
@@ -30,6 +31,8 @@ import {
 } from "./game/utils";
 
 export const App = () => {
+  type Difficulty = keyof typeof DIFFICULTY_CLUE_PIECES;
+
   const [board, setBoard] = useState<Cell[][]>(createEmptyBoard);
   const [placedPieces, setPlacedPieces] = useState<Record<string, PlacedPiece>>({});
   const [trayPieces, setTrayPieces] = useState<PlacedPiece[]>([]);
@@ -38,6 +41,7 @@ export const App = () => {
   const [activeDrag, setActiveDrag] = useState<ActiveDrag | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [difficulty, setDifficulty] = useState<Difficulty>(DEFAULT_DIFFICULTY);
   const [hoveredPieceId, setHoveredPieceId] = useState<string | null>(null);
   const [, setMessage] = useState("Generate a fresh board and recover the missing tetrominoes.");
   const generationToken = useRef(0);
@@ -48,6 +52,7 @@ export const App = () => {
   );
 
   const isSolved = solutionBoard !== null && boardEquals(board, solutionBoard);
+  const cluePieces = DIFFICULTY_CLUE_PIECES[difficulty];
   const duplicateNumberKeys = useMemo(() => findDuplicateNumberKeys(board), [board]);
   const fireworks = useMemo(() => {
     const palette = ["#ffd166", "#ff6b6b", "#7bdff2", "#cdb4db", "#9bf6b0", "#f9c74f"];
@@ -101,9 +106,10 @@ export const App = () => {
     });
   };
 
-  const startGeneration = () => {
+  const startGeneration = (targetDifficulty: Difficulty = difficulty) => {
     const token = generationToken.current + 1;
     generationToken.current = token;
+    const targetCluePieces = DIFFICULTY_CLUE_PIECES[targetDifficulty];
 
     setIsGenerating(true);
     setSolutionBoard(null);
@@ -134,7 +140,7 @@ export const App = () => {
           return;
         }
 
-        const puzzle = createPuzzleFromArrangement(arrangement);
+        const puzzle = createPuzzleFromArrangement(arrangement, targetCluePieces);
 
         finish();
         setBoard(puzzle.board);
@@ -146,7 +152,7 @@ export const App = () => {
         setPreview(null);
         setIsGenerating(false);
         setMessage(
-          `${CLUE_PIECES} clue pieces are fixed on the board. Rebuild the rest from the tray.`,
+          `${targetCluePieces} clue pieces are fixed on the board. Rebuild the rest from the tray.`,
         );
       };
 
@@ -482,6 +488,15 @@ export const App = () => {
     ].join(" ");
   };
 
+  const handleDifficultyChange = (nextDifficulty: Difficulty) => {
+    if (nextDifficulty === difficulty) {
+      return;
+    }
+
+    setDifficulty(nextDifficulty);
+    startGeneration(nextDifficulty);
+  };
+
   return (
     <div
       style={{
@@ -536,7 +551,7 @@ export const App = () => {
             A 9x9 puzzle of rotating pieces.
           </h1>
           <p style={{ marginTop: 0, maxWidth: "66ch", opacity: 0.84, lineHeight: 1.6 }}>
-            The board starts with a generated tetromino layout. {CLUE_PIECES} pieces stay fixed as
+            The board starts with a generated tetromino layout. {cluePieces} pieces stay fixed as
             clues, and the rest are moved into the tray for you to rotate and drag back into place.
           </p>
         </header>
@@ -642,7 +657,20 @@ export const App = () => {
             </div>
 
             <div style={{ display: "flex", gap: "12px", marginTop: "18px", flexWrap: "wrap" }}>
-              <button type="button" onClick={startGeneration} style={buttonStyle}>
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 600 }}>
+                Difficulty
+                <select
+                  value={difficulty}
+                  onChange={(event) => handleDifficultyChange(event.target.value as Difficulty)}
+                  style={selectStyle}
+                  disabled={isGenerating}
+                >
+                  <option value="easy">Easy (14 clues)</option>
+                  <option value="medium">Medium (10 clues)</option>
+                  <option value="hard">Hard (6 clues)</option>
+                </select>
+              </label>
+              <button type="button" onClick={() => startGeneration()} style={buttonStyle}>
                 {isGenerating ? "Generating..." : "New puzzle"}
               </button>
             </div>
@@ -840,7 +868,7 @@ export const App = () => {
             >
               Solved!
             </h2>
-            <button type="button" onClick={startGeneration} style={buttonStyle}>
+            <button type="button" onClick={() => startGeneration()} style={buttonStyle}>
               Retry
             </button>
           </div>
@@ -867,4 +895,14 @@ const trayButtonStyle: CSSProperties = {
   display: "flex",
   gap: "12px",
   textAlign: "left",
+};
+
+const selectStyle: CSSProperties = {
+  border: "1px solid rgba(255, 255, 255, 0.28)",
+  borderRadius: "999px",
+  padding: "10px 14px",
+  fontWeight: 700,
+  color: "#f8f9fa",
+  background: "rgba(15, 20, 37, 0.65)",
+  cursor: "pointer",
 };
