@@ -525,7 +525,6 @@ export const App = () => {
   return (
     <div
       style={{
-        minHeight: "100vh",
         padding: pagePadding,
         fontFamily: "ui-sans-serif, system-ui, sans-serif",
         color: "#f8f9fa",
