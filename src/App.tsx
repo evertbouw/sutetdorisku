@@ -38,6 +38,7 @@ export const App = () => {
   const [activeDrag, setActiveDrag] = useState<ActiveDrag | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [hoveredPieceId, setHoveredPieceId] = useState<string | null>(null);
   const [, setMessage] = useState("Generate a fresh board and recover the missing tetrominoes.");
   const generationToken = useRef(0);
 
@@ -577,6 +578,8 @@ export const App = () => {
                       key={`${rowIndex}-${colIndex}`}
                       onDragOver={(event) => onBoardCellDragOver(event, rowIndex, colIndex)}
                       onDrop={(event) => handleDrop(event, rowIndex, colIndex)}
+                      onMouseEnter={() => cell && setHoveredPieceId(cell.pieceInstanceId)}
+                      onMouseLeave={() => setHoveredPieceId(null)}
                       style={{
                         width: `${CELL_SIZE}px`,
                         height: `${CELL_SIZE}px`,
@@ -588,10 +591,14 @@ export const App = () => {
                         justifyContent: "center",
                         fontWeight: 700,
                         color: "#0b1020",
-                        transition: "background 120ms ease, transform 120ms ease",
-                        boxShadow: isFixed
-                          ? "inset 0 0 0 1px rgba(255, 255, 255, 0.22)"
-                          : undefined,
+                        transition:
+                          "background 120ms ease, transform 120ms ease, box-shadow 120ms ease",
+                        boxShadow:
+                          cell && hoveredPieceId === cell.pieceInstanceId && !isFixed
+                            ? "inset 0 0 0 2px rgba(255, 255, 255, 0.7)"
+                            : isFixed
+                              ? "inset 0 0 0 1px rgba(255, 255, 255, 0.22)"
+                              : undefined,
                         boxSizing: "border-box",
                         ...getCellSpacing(rowIndex, colIndex),
                       }}
