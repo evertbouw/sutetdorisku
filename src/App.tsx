@@ -529,8 +529,6 @@ export const App = () => {
         padding: pagePadding,
         fontFamily: "ui-sans-serif, system-ui, sans-serif",
         color: "#f8f9fa",
-        background:
-          "radial-gradient(circle at top left, #25314d 0%, rgba(21, 27, 46, 0.9) 45%, #0f1425 100%)",
       }}
     >
       <style>{`
@@ -579,6 +577,38 @@ export const App = () => {
 
         <div
           style={{
+            display: "flex",
+            gap: "12px",
+            marginBottom: "14px",
+            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent: isPortraitMobile ? "center" : "flex-start",
+          }}
+        >
+          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 600 }}>
+            Difficulty
+            <select
+              value={difficulty}
+              onChange={(event) => handleDifficultyChange(event.target.value as Difficulty)}
+              style={selectStyle}
+              disabled={isGenerating}
+            >
+              <option value="easy">Easy (14 clues)</option>
+              <option value="medium">Medium (10 clues)</option>
+              <option value="hard">Hard (6 clues)</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={() => startGeneration()}
+            style={{ ...buttonStyle, width: isCompactPhone ? "100%" : undefined }}
+          >
+            {isGenerating ? "Generating..." : "New puzzle"}
+          </button>
+        </div>
+
+        <div
+          style={{
             display: "grid",
             gap: isPortraitMobile ? "14px" : "18px",
             alignItems: "start",
@@ -586,38 +616,6 @@ export const App = () => {
           }}
         >
           <div>
-            <div
-              style={{
-                display: "flex",
-                gap: "12px",
-                marginBottom: "14px",
-                flexWrap: "wrap",
-                alignItems: "center",
-                justifyContent: isPortraitMobile ? "center" : "flex-start",
-              }}
-            >
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 600 }}>
-                Difficulty
-                <select
-                  value={difficulty}
-                  onChange={(event) => handleDifficultyChange(event.target.value as Difficulty)}
-                  style={selectStyle}
-                  disabled={isGenerating}
-                >
-                  <option value="easy">Easy (14 clues)</option>
-                  <option value="medium">Medium (10 clues)</option>
-                  <option value="hard">Hard (6 clues)</option>
-                </select>
-              </label>
-              <button
-                type="button"
-                onClick={() => startGeneration()}
-                style={{ ...buttonStyle, width: isCompactPhone ? "100%" : undefined }}
-              >
-                {isGenerating ? "Generating..." : "New puzzle"}
-              </button>
-            </div>
-
             <div
               style={{
                 width: "100%",
