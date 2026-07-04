@@ -56,7 +56,6 @@ export const App = () => {
   );
 
   const isSolved = solutionBoard !== null && boardEquals(board, solutionBoard);
-  const cluePieces = DIFFICULTY_CLUE_PIECES[difficulty];
   const isPortraitMobile = viewport.height >= viewport.width && viewport.width <= 900;
   const isCompactPhone = viewport.width <= 430;
   const boardCellSize = isCompactPhone ? 32 : isPortraitMobile ? 34 : CELL_SIZE;
@@ -562,7 +561,7 @@ export const App = () => {
       `}</style>
       <div style={{ margin: "0 auto", width: "100%" }}>
         <header style={{ marginBottom: "20px" }}>
-          <p
+          <h1
             style={{
               marginTop: 0,
               marginBottom: "8px",
@@ -572,13 +571,9 @@ export const App = () => {
             }}
           >
             sutetdorisku
-          </p>
-          <h1 style={{ marginTop: 0, marginBottom: "10px", fontSize: "clamp(2.2rem, 5vw, 4rem)" }}>
-            A 9x9 puzzle of rotating pieces.
           </h1>
           <p style={{ marginTop: 0, maxWidth: "66ch", opacity: 0.84, lineHeight: 1.6 }}>
-            The board starts with a generated tetromino layout. {cluePieces} pieces stay fixed as
-            clues, and the rest are moved into the tray for you to rotate and drag back into place.
+            Solve the sudoku puzzle by placing tetrominoes on the grid. Click pieces to rotate them.
           </p>
         </header>
 
