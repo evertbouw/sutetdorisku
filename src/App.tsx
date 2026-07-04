@@ -637,6 +637,8 @@ export const App = () => {
                   boxShadow: "0 20px 60px rgba(0, 0, 0, 0.35)",
                   width: "fit-content",
                   margin: isPortraitMobile ? "0 auto" : undefined,
+                  userSelect: "none",
+                  WebkitUserSelect: "none",
                 }}
               >
                 {board.map((row, rowIndex) =>
@@ -749,6 +751,8 @@ export const App = () => {
                   "linear-gradient(180deg, rgba(240, 216, 181, 0.62), rgba(224, 189, 145, 0.66))",
                 border: "none",
                 alignContent: "flex-start",
+                userSelect: "none",
+                WebkitUserSelect: "none",
               }}
             >
               {trayPieces.map((piece) => {
