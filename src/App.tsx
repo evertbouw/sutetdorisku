@@ -43,6 +43,10 @@ export const App = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [difficulty, setDifficulty] = useState<Difficulty>(DEFAULT_DIFFICULTY);
   const [hoveredPieceId, setHoveredPieceId] = useState<string | null>(null);
+  const [viewport, setViewport] = useState(() => ({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  }));
   const [, setMessage] = useState("Generate a fresh board and recover the missing tetrominoes.");
   const generationToken = useRef(0);
 
@@ -53,6 +57,11 @@ export const App = () => {
 
   const isSolved = solutionBoard !== null && boardEquals(board, solutionBoard);
   const cluePieces = DIFFICULTY_CLUE_PIECES[difficulty];
+  const isPortraitMobile = viewport.height >= viewport.width && viewport.width <= 900;
+  const isCompactPhone = viewport.width <= 430;
+  const boardCellSize = isCompactPhone ? 32 : isPortraitMobile ? 34 : CELL_SIZE;
+  const pagePadding = isPortraitMobile ? "10px" : "24px";
+  const boardFramePadding = isPortraitMobile ? "10px" : "12px";
   const duplicateNumberKeys = useMemo(() => findDuplicateNumberKeys(board), [board]);
   const fireworks = useMemo(() => {
     const palette = ["#ffd166", "#ff6b6b", "#7bdff2", "#cdb4db", "#9bf6b0", "#f9c74f"];
@@ -223,6 +232,23 @@ export const App = () => {
       setMessage("Solved. The board now matches the hidden arrangement.");
     }
   }, [isSolved]);
+
+  useEffect(() => {
+    const updateViewport = () => {
+      setViewport({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    };
+
+    window.addEventListener("resize", updateViewport);
+    window.addEventListener("orientationchange", updateViewport);
+
+    return () => {
+      window.removeEventListener("resize", updateViewport);
+      window.removeEventListener("orientationchange", updateViewport);
+    };
+  }, []);
 
   const rotateTrayPiece = (pieceInstanceId: string) => {
     setTrayPieces((prev) =>
@@ -501,7 +527,7 @@ export const App = () => {
     <div
       style={{
         minHeight: "100vh",
-        padding: "24px",
+        padding: pagePadding,
         fontFamily: "ui-sans-serif, system-ui, sans-serif",
         color: "#f8f9fa",
         background:
@@ -559,104 +585,22 @@ export const App = () => {
         <div
           style={{
             display: "grid",
-            gap: "18px",
+            gap: isPortraitMobile ? "14px" : "18px",
             alignItems: "start",
-            gridTemplateColumns: "max-content minmax(320px, 1fr)",
+            gridTemplateColumns: isPortraitMobile ? "1fr" : "max-content minmax(320px, 1fr)",
           }}
         >
           <div>
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: `repeat(${BOARD_SIZE}, ${CELL_SIZE}px)`,
-                gridTemplateRows: `repeat(${BOARD_SIZE}, ${CELL_SIZE}px)`,
-                gap: 0,
-                padding: "12px",
-                borderRadius: "22px",
-                background: "rgba(255, 255, 255, 0.06)",
-                boxShadow: "0 20px 60px rgba(0, 0, 0, 0.35)",
-                width: "fit-content",
+                display: "flex",
+                gap: "12px",
+                marginBottom: "14px",
+                flexWrap: "wrap",
+                alignItems: "center",
+                justifyContent: isPortraitMobile ? "center" : "flex-start",
               }}
             >
-              {board.map((row, rowIndex) =>
-                row.map((cell, colIndex) => {
-                  const piece = cell ? placedPieces[cell.pieceInstanceId] : null;
-                  const isFixed = piece ? fixedPieceIds.has(piece.pieceInstanceId) : false;
-                  const isBlockBoundary =
-                    rowIndex % 3 === 0 ||
-                    colIndex % 3 === 0 ||
-                    rowIndex === BOARD_SIZE - 1 ||
-                    colIndex === BOARD_SIZE - 1;
-
-                  return (
-                    <div
-                      key={`${rowIndex}-${colIndex}`}
-                      onDragOver={(event) => onBoardCellDragOver(event, rowIndex, colIndex)}
-                      onDrop={(event) => handleDrop(event, rowIndex, colIndex)}
-                      onMouseEnter={() => cell && setHoveredPieceId(cell.pieceInstanceId)}
-                      onMouseLeave={() => setHoveredPieceId(null)}
-                      style={{
-                        width: `${CELL_SIZE}px`,
-                        height: `${CELL_SIZE}px`,
-                        borderRadius: getCellRadius(rowIndex, colIndex),
-                        border: `1px solid ${isBlockBoundary ? "rgba(255, 255, 255, 0.18)" : "rgba(255, 255, 255, 0.08)"}`,
-                        background: getCellBackground(rowIndex, colIndex, cell),
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontWeight: 700,
-                        color: "#0b1020",
-                        transition:
-                          "background 120ms ease, transform 120ms ease, box-shadow 120ms ease",
-                        boxShadow:
-                          cell && hoveredPieceId === cell.pieceInstanceId && !isFixed
-                            ? "inset 0 0 0 2px rgba(255, 255, 255, 0.7)"
-                            : isFixed
-                              ? "inset 0 0 0 1px rgba(255, 255, 255, 0.22)"
-                              : undefined,
-                        boxSizing: "border-box",
-                        ...getCellSpacing(rowIndex, colIndex),
-                      }}
-                    >
-                      {cell ? (
-                        <div
-                          draggable={!isFixed}
-                          onDragStart={(event) =>
-                            piece
-                              ? startBoardPieceDrag(event, cell.pieceInstanceId, piece)
-                              : undefined
-                          }
-                          onDragEnd={() => endBoardPieceDrag(cell.pieceInstanceId)}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            borderRadius: "inherit",
-                            background: cell.color,
-                            boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.18)",
-                            opacity: isFixed ? 0.95 : 1,
-                            cursor: isFixed ? "default" : "grab",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: duplicateNumberKeys.has(toCellKey(rowIndex, colIndex))
-                              ? "#ef4444"
-                              : "#f8fafc",
-                            textShadow: "0 1px 2px rgba(0, 0, 0, 0.45)",
-                            fontSize: "1.05rem",
-                            fontWeight: 900,
-                            boxSizing: "border-box",
-                          }}
-                        >
-                          <span>{cell.number}</span>
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                }),
-              )}
-            </div>
-
-            <div style={{ display: "flex", gap: "12px", marginTop: "18px", flexWrap: "wrap" }}>
               <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 600 }}>
                 Difficulty
                 <select
@@ -670,9 +614,113 @@ export const App = () => {
                   <option value="hard">Hard (6 clues)</option>
                 </select>
               </label>
-              <button type="button" onClick={() => startGeneration()} style={buttonStyle}>
+              <button
+                type="button"
+                onClick={() => startGeneration()}
+                style={{ ...buttonStyle, width: isCompactPhone ? "100%" : undefined }}
+              >
                 {isGenerating ? "Generating..." : "New puzzle"}
               </button>
+            </div>
+
+            <div
+              style={{
+                width: "100%",
+                overflowX: "auto",
+                paddingBottom: "2px",
+              }}
+            >
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: `repeat(${BOARD_SIZE}, ${boardCellSize}px)`,
+                  gridTemplateRows: `repeat(${BOARD_SIZE}, ${boardCellSize}px)`,
+                  gap: 0,
+                  padding: boardFramePadding,
+                  borderRadius: "22px",
+                  background: "rgba(255, 255, 255, 0.06)",
+                  boxShadow: "0 20px 60px rgba(0, 0, 0, 0.35)",
+                  width: "fit-content",
+                  margin: isPortraitMobile ? "0 auto" : undefined,
+                }}
+              >
+                {board.map((row, rowIndex) =>
+                  row.map((cell, colIndex) => {
+                    const piece = cell ? placedPieces[cell.pieceInstanceId] : null;
+                    const isFixed = piece ? fixedPieceIds.has(piece.pieceInstanceId) : false;
+                    const isBlockBoundary =
+                      rowIndex % 3 === 0 ||
+                      colIndex % 3 === 0 ||
+                      rowIndex === BOARD_SIZE - 1 ||
+                      colIndex === BOARD_SIZE - 1;
+
+                    return (
+                      <div
+                        key={`${rowIndex}-${colIndex}`}
+                        onDragOver={(event) => onBoardCellDragOver(event, rowIndex, colIndex)}
+                        onDrop={(event) => handleDrop(event, rowIndex, colIndex)}
+                        onMouseEnter={() => cell && setHoveredPieceId(cell.pieceInstanceId)}
+                        onMouseLeave={() => setHoveredPieceId(null)}
+                        style={{
+                          width: `${boardCellSize}px`,
+                          height: `${boardCellSize}px`,
+                          borderRadius: getCellRadius(rowIndex, colIndex),
+                          border: `1px solid ${isBlockBoundary ? "rgba(255, 255, 255, 0.18)" : "rgba(255, 255, 255, 0.08)"}`,
+                          background: getCellBackground(rowIndex, colIndex, cell),
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontWeight: 700,
+                          color: "#0b1020",
+                          transition:
+                            "background 120ms ease, transform 120ms ease, box-shadow 120ms ease",
+                          boxShadow:
+                            cell && hoveredPieceId === cell.pieceInstanceId && !isFixed
+                              ? "inset 0 0 0 2px rgba(255, 255, 255, 0.7)"
+                              : isFixed
+                                ? "inset 0 0 0 1px rgba(255, 255, 255, 0.22)"
+                                : undefined,
+                          boxSizing: "border-box",
+                          ...getCellSpacing(rowIndex, colIndex),
+                        }}
+                      >
+                        {cell ? (
+                          <div
+                            draggable={!isFixed}
+                            onDragStart={(event) =>
+                              piece
+                                ? startBoardPieceDrag(event, cell.pieceInstanceId, piece)
+                                : undefined
+                            }
+                            onDragEnd={() => endBoardPieceDrag(cell.pieceInstanceId)}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              borderRadius: "inherit",
+                              background: cell.color,
+                              boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.18)",
+                              opacity: isFixed ? 0.95 : 1,
+                              cursor: isFixed ? "default" : "grab",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              color: duplicateNumberKeys.has(toCellKey(rowIndex, colIndex))
+                                ? "#ef4444"
+                                : "#f8fafc",
+                              textShadow: "0 1px 2px rgba(0, 0, 0, 0.45)",
+                              fontSize: isCompactPhone ? "0.92rem" : "1.05rem",
+                              fontWeight: 900,
+                              boxSizing: "border-box",
+                            }}
+                          >
+                            <span>{cell.number}</span>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  }),
+                )}
+              </div>
             </div>
           </div>
 
@@ -680,7 +728,9 @@ export const App = () => {
             style={{
               display: "flex",
               flexDirection: "column",
-              height: `${BOARD_SIZE * CELL_SIZE + 24}px`,
+              height: isPortraitMobile ? "auto" : `${BOARD_SIZE * boardCellSize + 24}px`,
+              minHeight: isPortraitMobile ? "220px" : undefined,
+              width: isPortraitMobile ? "100%" : undefined,
               padding: "18px",
               borderRadius: "26px",
               boxSizing: "border-box",
@@ -694,12 +744,12 @@ export const App = () => {
             <div
               style={{
                 display: "flex",
-                flex: 1,
+                flex: isPortraitMobile ? "initial" : 1,
                 flexWrap: "wrap",
                 gap: "10px",
                 padding: "12px",
                 borderRadius: "20px",
-                minHeight: 0,
+                minHeight: isPortraitMobile ? "170px" : 0,
                 background:
                   "linear-gradient(180deg, rgba(240, 216, 181, 0.62), rgba(224, 189, 145, 0.66))",
                 border: "none",
@@ -738,8 +788,8 @@ export const App = () => {
                     onDragEnd={endTrayDrag}
                     style={{
                       ...trayButtonStyle,
-                      width: `${cols * CELL_SIZE + 8}px`,
-                      minHeight: `${rows * CELL_SIZE + 8}px`,
+                      width: `${cols * boardCellSize + 8}px`,
+                      minHeight: `${rows * boardCellSize + 8}px`,
                       padding: "4px",
                       background: "transparent",
                       border: "none",
@@ -755,8 +805,8 @@ export const App = () => {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: `repeat(${cols}, ${CELL_SIZE}px)`,
-                        gridTemplateRows: `repeat(${rows}, ${CELL_SIZE}px)`,
+                        gridTemplateColumns: `repeat(${cols}, ${boardCellSize}px)`,
+                        gridTemplateRows: `repeat(${rows}, ${boardCellSize}px)`,
                         gap: 0,
                         justifyContent: "end",
                       }}
@@ -767,15 +817,15 @@ export const App = () => {
                           style={{
                             gridRow: row + 1,
                             gridColumn: col + 1,
-                            width: `${CELL_SIZE}px`,
-                            height: `${CELL_SIZE}px`,
+                            width: `${boardCellSize}px`,
+                            height: `${boardCellSize}px`,
                             borderRadius: getTrayCellRadius(row, col),
                             background: tetromino.color,
                             color: "#fff",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            fontSize: "1.05rem",
+                            fontSize: isCompactPhone ? "0.92rem" : "1.05rem",
                             fontWeight: 900,
                             textShadow: "0 1px 2px rgba(0, 0, 0, 0.45)",
                           }}
