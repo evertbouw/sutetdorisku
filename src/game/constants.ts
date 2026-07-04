@@ -7,5 +7,5 @@ export const DIFFICULTY_CLUE_PIECES = {
   hard: 6,
 } as const;
 export const DEFAULT_DIFFICULTY = "medium";
-export const GENERATION_TIMEOUT_MS = 100;
+export const GENERATION_TIMEOUT_MS = 400;
 export const GENERATION_MAX_RETRIES = 20;
