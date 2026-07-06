@@ -1,3 +1,5 @@
+import { TETROMINOS } from "./game/tetrominos";
+
 type Point = [number, number];
 
 type Cell = { color: string; pieceInstanceId: string } | null;
@@ -23,83 +25,6 @@ type CandidatePlacement = {
 };
 
 const BOARD_SIZE = 9;
-
-const TETROMINOS: Array<{
-  id: string;
-  color: string;
-  shape: Point[];
-}> = [
-  {
-    id: "I",
-    color: "#ef476f",
-    shape: [
-      [0, 0],
-      [0, 1],
-      [0, 2],
-      [0, 3],
-    ],
-  },
-  {
-    id: "O",
-    color: "#ffd166",
-    shape: [
-      [0, 0],
-      [0, 1],
-      [1, 0],
-      [1, 1],
-    ],
-  },
-  {
-    id: "T",
-    color: "#06d6a0",
-    shape: [
-      [0, 1],
-      [1, 0],
-      [1, 1],
-      [1, 2],
-    ],
-  },
-  {
-    id: "S",
-    color: "#118ab2",
-    shape: [
-      [0, 1],
-      [0, 2],
-      [1, 0],
-      [1, 1],
-    ],
-  },
-  {
-    id: "Z",
-    color: "#8d99ae",
-    shape: [
-      [0, 0],
-      [0, 1],
-      [1, 1],
-      [1, 2],
-    ],
-  },
-  {
-    id: "J",
-    color: "#f78c6b",
-    shape: [
-      [0, 0],
-      [1, 0],
-      [1, 1],
-      [1, 2],
-    ],
-  },
-  {
-    id: "L",
-    color: "#8338ec",
-    shape: [
-      [0, 2],
-      [1, 0],
-      [1, 1],
-      [1, 2],
-    ],
-  },
-];
 
 const createEmptyBoard = () =>
   Array.from({ length: BOARD_SIZE }, () => Array.from({ length: BOARD_SIZE }, () => null as Cell));
@@ -308,20 +233,21 @@ const createRandomArrangement = () => {
 
     const minRow = Math.min(...candidate.cells.map(([row]) => row));
     const minCol = Math.min(...candidate.cells.map(([, col]) => col));
+    const colorClass = `board-piece-bg-${tetromino.id.toLowerCase()}`;
     const pieceInstanceId = `piece-${nextInstance}`;
     nextInstance += 1;
 
     placedPieces[pieceInstanceId] = {
       pieceInstanceId,
       tetrominoId: tetromino.id,
-      color: tetromino.color,
+      color: colorClass,
       rotation: candidate.rotation,
       anchorRow: minRow,
       anchorCol: minCol,
     };
 
     for (const [row, col] of candidate.cells) {
-      board[row][col] = { color: tetromino.color, pieceInstanceId };
+      board[row][col] = { color: colorClass, pieceInstanceId };
     }
   }
 
@@ -337,12 +263,9 @@ self.onmessage = (event: MessageEvent<{ type: "generate" }>) => {
     return;
   }
 
-  while (true) {
-    const arrangement = createRandomArrangement();
+  const arrangement = createRandomArrangement();
 
-    if (arrangement) {
-      self.postMessage({ type: "success", arrangement });
-      return;
-    }
-  }
+  self.postMessage(arrangement ? { type: "success", arrangement } : { type: "failure" });
+
+  return;
 };

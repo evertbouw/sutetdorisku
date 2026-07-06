@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BOARD_SIZE,
-  CELL_SIZE,
   DEFAULT_DIFFICULTY,
   DIFFICULTY_CLUE_PIECES,
   GENERATION_MAX_RETRIES,
@@ -24,7 +23,6 @@ import {
   createEmptyBoard,
   getAbsoluteCells,
   getPieceShape,
-  getTrayPiecePose,
   rotatePieceCells,
   shapeBounds,
   toCellKey,
@@ -43,11 +41,6 @@ export const App = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [difficulty, setDifficulty] = useState<Difficulty>(DEFAULT_DIFFICULTY);
   const [hoveredPieceId, setHoveredPieceId] = useState<string | null>(null);
-  const [viewport, setViewport] = useState(() => ({
-    width: window.innerWidth,
-    height: window.innerHeight,
-  }));
-  const [, setMessage] = useState("Generate a fresh board and recover the missing tetrominoes.");
   const generationToken = useRef(0);
 
   const tetrominoById = useMemo(
@@ -56,32 +49,8 @@ export const App = () => {
   );
 
   const isSolved = solutionBoard !== null && boardEquals(board, solutionBoard);
-  const isPortraitMobile = viewport.height >= viewport.width && viewport.width <= 900;
-  const isCompactPhone = viewport.width <= 430;
-  const boardCellSize = isCompactPhone ? 32 : isPortraitMobile ? 34 : CELL_SIZE;
-  const pagePadding = isPortraitMobile ? "10px" : "24px";
-  const boardFramePadding = isPortraitMobile ? "10px" : "12px";
   const duplicateNumberKeys = useMemo(() => findDuplicateNumberKeys(board), [board]);
-  const fireworks = useMemo(() => {
-    const palette = ["#ffd166", "#ff6b6b", "#7bdff2", "#cdb4db", "#9bf6b0", "#f9c74f"];
-
-    return Array.from({ length: 72 }, (_, index) => {
-      const angle = ((index * 37) % 360) * (Math.PI / 180);
-      const radius = 70 + (index % 6) * 24;
-
-      return {
-        id: index,
-        left: `${10 + ((index * 17) % 78)}%`,
-        top: `${12 + ((index * 11) % 70)}%`,
-        dx: Math.cos(angle) * radius,
-        dy: Math.sin(angle) * radius,
-        size: 6 + (index % 4) * 2,
-        color: palette[index % palette.length],
-        delay: (index % 12) * 0.08,
-        duration: 1.6 + (index % 5) * 0.22,
-      };
-    });
-  }, []);
+  const fireworks = useMemo(() => Array.from({ length: 72 }, (_, index) => index), []);
 
   const canPlace = (shape: Point[], startRow: number, startCol: number, ignorePieceId?: string) =>
     shape.every(([deltaRow, deltaCol]) => {
@@ -126,8 +95,6 @@ export const App = () => {
         return;
       }
 
-      setMessage(`Generating puzzle... attempt ${attempt}/${GENERATION_MAX_RETRIES}.`);
-
       const worker = new Worker(new URL("./random-fill.worker.ts", import.meta.url), {
         type: "module",
       });
@@ -159,12 +126,9 @@ export const App = () => {
         setActiveDrag(null);
         setPreview(null);
         setIsGenerating(false);
-        setMessage(
-          `${targetCluePieces} clue pieces are fixed on the board. Rebuild the rest from the tray.`,
-        );
       };
 
-      const retryOrFail = (reason: string) => {
+      const retryOrFail = () => {
         if (generationToken.current !== token) {
           return;
         }
@@ -177,11 +141,10 @@ export const App = () => {
         }
 
         setIsGenerating(false);
-        setMessage(`Could not generate a puzzle (${reason}). Try again.`);
       };
 
       const timeoutId = window.setTimeout(() => {
-        retryOrFail("timed out");
+        retryOrFail();
       }, GENERATION_TIMEOUT_MS);
 
       worker.onmessage = (
@@ -200,7 +163,7 @@ export const App = () => {
           return;
         }
 
-        retryOrFail("no solution");
+        retryOrFail();
       };
 
       worker.onerror = () => {
@@ -209,7 +172,7 @@ export const App = () => {
         }
 
         window.clearTimeout(timeoutId);
-        retryOrFail("worker error");
+        retryOrFail();
       };
 
       worker.postMessage({ type: "generate" });
@@ -223,29 +186,6 @@ export const App = () => {
 
     return () => {
       generationToken.current += 1;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (isSolved) {
-      setMessage("Solved. The board now matches the hidden arrangement.");
-    }
-  }, [isSolved]);
-
-  useEffect(() => {
-    const updateViewport = () => {
-      setViewport({
-        width: window.innerWidth,
-        height: window.innerHeight,
-      });
-    };
-
-    window.addEventListener("resize", updateViewport);
-    window.addEventListener("orientationchange", updateViewport);
-
-    return () => {
-      window.removeEventListener("resize", updateViewport);
-      window.removeEventListener("orientationchange", updateViewport);
     };
   }, []);
 
@@ -272,7 +212,6 @@ export const App = () => {
     const ignorePieceId = activeDrag.source === "board" ? activeDrag.pieceInstanceId : undefined;
 
     if (!canPlace(shape, targetRow, targetCol, ignorePieceId)) {
-      setMessage("That tetromino does not fit there.");
       return;
     }
 
@@ -308,7 +247,6 @@ export const App = () => {
         return next;
       });
 
-      setMessage(`${piece.tetrominoId} placed.`);
       return;
     }
 
@@ -343,8 +281,6 @@ export const App = () => {
         anchorCol: targetCol,
       },
     }));
-
-    setMessage(`${piece.tetrominoId} moved.`);
   };
 
   const handleDrop = (
@@ -379,7 +315,6 @@ export const App = () => {
     setTrayPieces((prev) => [...prev, piece]);
     setActiveDrag(null);
     setPreview(null);
-    setMessage(`${piece.tetrominoId} returned to the box.`);
   };
 
   const onTrayDragOver = (event: React.DragEvent<HTMLDivElement>) => {
@@ -395,8 +330,6 @@ export const App = () => {
       piece,
       shape,
     });
-
-    setMessage(`Dragging ${piece.tetrominoId}.`);
   };
 
   const endTrayDrag = () => {
@@ -418,7 +351,6 @@ export const App = () => {
     const shape = getPieceShape(piece);
     setActiveDrag({ source: "board", pieceInstanceId, shape });
     setPreview(null);
-    setMessage(`Moving ${piece.tetrominoId}.`);
   };
 
   const endBoardPieceDrag = (pieceInstanceId: string) => {
@@ -442,26 +374,21 @@ export const App = () => {
     setPreviewAt(activeDrag.shape, rowIndex, colIndex);
   };
 
-  const getCellBackground = (rowIndex: number, colIndex: number, cell: Cell) => {
+  const getCellBackgroundClass = (rowIndex: number, colIndex: number, cell: Cell) => {
     const key = toCellKey(rowIndex, colIndex);
 
     if (preview?.keys.has(key)) {
-      return preview.valid ? "rgba(127, 255, 176, 0.55)" : "rgba(255, 99, 132, 0.55)";
+      return preview.valid ? "board-cell-bg-preview-valid" : "board-cell-bg-preview-invalid";
     }
 
-    return cell?.color ?? "rgba(255, 255, 255, 0.04)";
+    return cell ? "board-cell-bg-filled" : "board-cell-bg-empty";
   };
 
-  const getCellSpacing = (rowIndex: number, colIndex: number) => {
+  const getCellAdjacencyClasses = (rowIndex: number, colIndex: number) => {
     const currentPieceId = board[rowIndex][colIndex]?.pieceInstanceId;
 
     if (!currentPieceId) {
-      return {
-        paddingTop: 0,
-        paddingRight: 0,
-        paddingBottom: 0,
-        paddingLeft: 0,
-      };
+      return "board-cell-empty";
     }
 
     const hasSamePieceAbove =
@@ -475,42 +402,25 @@ export const App = () => {
     const hasSamePieceLeft =
       colIndex > 0 && board[rowIndex][colIndex - 1]?.pieceInstanceId === currentPieceId;
 
-    const edgeGap = 3;
+    const adjacencyClasses = ["board-cell-filled"];
 
-    return {
-      paddingTop: hasSamePieceAbove ? 0 : edgeGap,
-      paddingRight: hasSamePieceRight ? 0 : edgeGap,
-      paddingBottom: hasSamePieceBelow ? 0 : edgeGap,
-      paddingLeft: hasSamePieceLeft ? 0 : edgeGap,
-    };
-  };
-
-  const getCellRadius = (rowIndex: number, colIndex: number) => {
-    const currentPieceId = board[rowIndex][colIndex]?.pieceInstanceId;
-
-    if (!currentPieceId) {
-      return "6px";
+    if (hasSamePieceAbove) {
+      adjacencyClasses.push("has-same-piece-above");
     }
 
-    const hasSamePieceAbove =
-      rowIndex > 0 && board[rowIndex - 1][colIndex]?.pieceInstanceId === currentPieceId;
-    const hasSamePieceRight =
-      colIndex < BOARD_SIZE - 1 &&
-      board[rowIndex][colIndex + 1]?.pieceInstanceId === currentPieceId;
-    const hasSamePieceBelow =
-      rowIndex < BOARD_SIZE - 1 &&
-      board[rowIndex + 1][colIndex]?.pieceInstanceId === currentPieceId;
-    const hasSamePieceLeft =
-      colIndex > 0 && board[rowIndex][colIndex - 1]?.pieceInstanceId === currentPieceId;
+    if (hasSamePieceRight) {
+      adjacencyClasses.push("has-same-piece-right");
+    }
 
-    const radius = "10px";
+    if (hasSamePieceBelow) {
+      adjacencyClasses.push("has-same-piece-below");
+    }
 
-    return [
-      hasSamePieceAbove || hasSamePieceLeft ? "0" : radius,
-      hasSamePieceAbove || hasSamePieceRight ? "0" : radius,
-      hasSamePieceBelow || hasSamePieceRight ? "0" : radius,
-      hasSamePieceBelow || hasSamePieceLeft ? "0" : radius,
-    ].join(" ");
+    if (hasSamePieceLeft) {
+      adjacencyClasses.push("has-same-piece-left");
+    }
+
+    return adjacencyClasses.join(" ");
   };
 
   const handleDifficultyChange = (nextDifficulty: Difficulty) => {
@@ -523,73 +433,24 @@ export const App = () => {
   };
 
   return (
-    <div
-      style={{
-        padding: pagePadding,
-        fontFamily: "ui-sans-serif, system-ui, sans-serif",
-        color: "#f8f9fa",
-      }}
-    >
-      <style>{`
-        @keyframes firework-burst {
-          0% {
-            opacity: 0;
-            transform: translate(0, 0) scale(0.2);
-          }
-          18% {
-            opacity: 1;
-          }
-          100% {
-            opacity: 0;
-            transform: translate(var(--dx), var(--dy)) scale(1);
-          }
-        }
-
-        @keyframes solved-pop {
-          0% {
-            opacity: 0;
-            transform: translateY(14px) scale(0.92);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-      `}</style>
-      <div style={{ margin: "0 auto", width: "100%" }}>
-        <header style={{ marginBottom: "20px" }}>
-          <h1
-            style={{
-              marginTop: 0,
-              marginBottom: "8px",
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              color: "#fcd34d",
-            }}
-          >
-            sutetdorisku
-          </h1>
-          <p style={{ marginTop: 0, maxWidth: "66ch", opacity: 0.84, lineHeight: 1.6 }}>
-            Solve the sudoku puzzle by placing tetrominoes on the grid. Click pieces to rotate them.
+    <div className="app">
+      <div className="app-shell">
+        <header className="app-header">
+          <h1 className="app-title">sutetdorisku</h1>
+          <p className="app-intro">
+            Solve the sudoku puzzle by placing tetrominoes on the grid. In sudoku each number may
+            only appear once in each row, column, and 3x3 square. Duplicate numbers will appear in
+            red. Click tetrominoes in the box to rotate them. One tile will remain empty.
           </p>
         </header>
 
-        <div
-          style={{
-            display: "flex",
-            gap: "12px",
-            marginBottom: "14px",
-            flexWrap: "wrap",
-            alignItems: "center",
-            justifyContent: isPortraitMobile ? "center" : "flex-start",
-          }}
-        >
-          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 600 }}>
+        <div className="app-controls">
+          <label className="app-control-label">
             Difficulty
             <select
               value={difficulty}
               onChange={(event) => handleDifficultyChange(event.target.value as Difficulty)}
-              style={selectStyle}
+              className="app-select"
               disabled={isGenerating}
             >
               <option value="easy">Easy (14 clues)</option>
@@ -600,53 +461,26 @@ export const App = () => {
           <button
             type="button"
             onClick={() => startGeneration()}
-            style={{ ...buttonStyle, width: isCompactPhone ? "100%" : undefined }}
+            className="app-button app-button-new"
           >
             {isGenerating ? "Generating..." : "New puzzle"}
           </button>
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gap: isPortraitMobile ? "14px" : "18px",
-            alignItems: "start",
-            gridTemplateColumns: isPortraitMobile ? "1fr" : "max-content minmax(320px, 1fr)",
-          }}
-        >
+        <div className="game-layout">
           <div>
-            <div
-              style={{
-                width: "100%",
-                overflowX: "auto",
-                paddingBottom: "2px",
-              }}
-            >
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: `repeat(${BOARD_SIZE}, ${boardCellSize}px)`,
-                  gridTemplateRows: `repeat(${BOARD_SIZE}, ${boardCellSize}px)`,
-                  gap: 0,
-                  padding: boardFramePadding,
-                  borderRadius: "22px",
-                  background: "rgba(255, 255, 255, 0.06)",
-                  boxShadow: "0 20px 60px rgba(0, 0, 0, 0.35)",
-                  width: "fit-content",
-                  margin: isPortraitMobile ? "0 auto" : undefined,
-                  userSelect: "none",
-                  WebkitUserSelect: "none",
-                }}
-              >
+            <div className="board-scroll-wrap">
+              <div className="board-grid">
                 {board.map((row, rowIndex) =>
                   row.map((cell, colIndex) => {
                     const piece = cell ? placedPieces[cell.pieceInstanceId] : null;
                     const isFixed = piece ? fixedPieceIds.has(piece.pieceInstanceId) : false;
-                    const isBlockBoundary =
-                      rowIndex % 3 === 0 ||
-                      colIndex % 3 === 0 ||
-                      rowIndex === BOARD_SIZE - 1 ||
-                      colIndex === BOARD_SIZE - 1;
+                    const isHoveredPiece =
+                      !!cell && hoveredPieceId === cell.pieceInstanceId && !isFixed;
+                    const isDuplicate = duplicateNumberKeys.has(toCellKey(rowIndex, colIndex));
+                    const cellBackgroundClass = getCellBackgroundClass(rowIndex, colIndex, cell);
+                    const cellAdjacencyClass = getCellAdjacencyClasses(rowIndex, colIndex);
+                    const pieceColorClass = cell ? cell.color : "";
 
                     return (
                       <div
@@ -655,28 +489,7 @@ export const App = () => {
                         onDrop={(event) => handleDrop(event, rowIndex, colIndex)}
                         onMouseEnter={() => cell && setHoveredPieceId(cell.pieceInstanceId)}
                         onMouseLeave={() => setHoveredPieceId(null)}
-                        style={{
-                          width: `${boardCellSize}px`,
-                          height: `${boardCellSize}px`,
-                          borderRadius: getCellRadius(rowIndex, colIndex),
-                          border: `1px solid ${isBlockBoundary ? "rgba(255, 255, 255, 0.18)" : "rgba(255, 255, 255, 0.08)"}`,
-                          background: getCellBackground(rowIndex, colIndex, cell),
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontWeight: 700,
-                          color: "#0b1020",
-                          transition:
-                            "background 120ms ease, transform 120ms ease, box-shadow 120ms ease",
-                          boxShadow:
-                            cell && hoveredPieceId === cell.pieceInstanceId && !isFixed
-                              ? "inset 0 0 0 2px rgba(255, 255, 255, 0.7)"
-                              : isFixed
-                                ? "inset 0 0 0 1px rgba(255, 255, 255, 0.22)"
-                                : undefined,
-                          boxSizing: "border-box",
-                          ...getCellSpacing(rowIndex, colIndex),
-                        }}
+                        className={`board-cell ${cellBackgroundClass} ${cellAdjacencyClass} ${pieceColorClass}${isHoveredPiece ? " board-cell-hovered" : ""}${isFixed ? " board-cell-fixed" : ""}`}
                       >
                         {cell ? (
                           <div
@@ -687,25 +500,7 @@ export const App = () => {
                                 : undefined
                             }
                             onDragEnd={() => endBoardPieceDrag(cell.pieceInstanceId)}
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              borderRadius: "inherit",
-                              background: cell.color,
-                              boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.18)",
-                              opacity: isFixed ? 0.95 : 1,
-                              cursor: isFixed ? "default" : "grab",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: duplicateNumberKeys.has(toCellKey(rowIndex, colIndex))
-                                ? "#ef4444"
-                                : "#f8fafc",
-                              textShadow: "0 1px 2px rgba(0, 0, 0, 0.45)",
-                              fontSize: isCompactPhone ? "0.92rem" : "1.05rem",
-                              fontWeight: 900,
-                              boxSizing: "border-box",
-                            }}
+                            className={`board-piece ${pieceColorClass}${isDuplicate ? " board-piece-duplicate" : ""}${isFixed ? " board-piece-fixed" : " board-piece-movable"}`}
                           >
                             <span>{cell.number}</span>
                           </div>
@@ -714,65 +509,25 @@ export const App = () => {
                     );
                   }),
                 )}
+                <div className="board-overlay" />
+                <div className="board-divider board-divider-v board-divider-v-1" />
+                <div className="board-divider board-divider-v board-divider-v-2" />
+                <div className="board-divider board-divider-h board-divider-h-1" />
+                <div className="board-divider board-divider-h board-divider-h-2" />
               </div>
             </div>
           </div>
 
-          <aside
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              height: isPortraitMobile ? "auto" : `${BOARD_SIZE * boardCellSize + 24}px`,
-              minHeight: isPortraitMobile ? "220px" : undefined,
-              width: isPortraitMobile ? "100%" : undefined,
-              padding: "18px",
-              borderRadius: "26px",
-              boxSizing: "border-box",
-              background: "linear-gradient(180deg, #c89d67 0%, #b6844f 100%)",
-              border: "1px solid rgba(89, 56, 27, 0.45)",
-              boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 20px 60px rgba(0, 0, 0, 0.28)",
-            }}
-            onDragOver={onTrayDragOver}
-            onDrop={dropPieceIntoTray}
-          >
-            <div
-              style={{
-                display: "flex",
-                flex: isPortraitMobile ? "initial" : 1,
-                flexWrap: "wrap",
-                gap: "10px",
-                padding: "12px",
-                borderRadius: "20px",
-                minHeight: isPortraitMobile ? "170px" : 0,
-                background:
-                  "linear-gradient(180deg, rgba(240, 216, 181, 0.62), rgba(224, 189, 145, 0.66))",
-                border: "none",
-                alignContent: "flex-start",
-                userSelect: "none",
-                WebkitUserSelect: "none",
-              }}
-            >
+          <aside className="tray-panel" onDragOver={onTrayDragOver} onDrop={dropPieceIntoTray}>
+            <div className="tray-list">
               {trayPieces.map((piece) => {
                 const tetromino = tetrominoById[piece.tetrominoId];
                 const shape = getPieceShape(piece);
                 const { rows, cols } = shapeBounds(shape);
-                const pose = getTrayPiecePose(piece.pieceInstanceId);
                 const shapeCellKeys = new Set(shape.map(([row, col]) => `${row}-${col}`));
-
-                const getTrayCellRadius = (row: number, col: number) => {
-                  const hasAbove = shapeCellKeys.has(`${row - 1}-${col}`);
-                  const hasRight = shapeCellKeys.has(`${row}-${col + 1}`);
-                  const hasBelow = shapeCellKeys.has(`${row + 1}-${col}`);
-                  const hasLeft = shapeCellKeys.has(`${row}-${col - 1}`);
-                  const radius = "8px";
-
-                  return [
-                    hasAbove || hasLeft ? "0" : radius,
-                    hasAbove || hasRight ? "0" : radius,
-                    hasBelow || hasRight ? "0" : radius,
-                    hasBelow || hasLeft ? "0" : radius,
-                  ].join(" ");
-                };
+                const traySizeClass = `tray-piece-size-r${rows}-c${cols}`;
+                const trayGridClass = `tray-piece-grid-r${rows}-c${cols}`;
+                const trayColorClass = `board-piece-bg-${tetromino.id.toLowerCase()}`;
 
                 return (
                   <button
@@ -782,57 +537,39 @@ export const App = () => {
                     draggable
                     onDragStart={(event) => startTrayDrag(event, piece)}
                     onDragEnd={endTrayDrag}
-                    style={{
-                      ...trayButtonStyle,
-                      width: `${cols * boardCellSize + 8}px`,
-                      minHeight: `${rows * boardCellSize + 8}px`,
-                      padding: "4px",
-                      background: "transparent",
-                      border: "none",
-                      boxShadow: "none",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexDirection: "column",
-                      gap: "8px",
-                      ...pose,
-                    }}
-                    aria-label={`Move tetromino ${tetromino.name}`}
+                    className={`tray-piece-button ${traySizeClass}`}
+                    aria-label={`Move tetromino ${tetromino.id}`}
                   >
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: `repeat(${cols}, ${boardCellSize}px)`,
-                        gridTemplateRows: `repeat(${rows}, ${boardCellSize}px)`,
-                        gap: 0,
-                        justifyContent: "end",
-                      }}
-                    >
-                      {shape.map(([row, col]) => (
-                        <span
-                          key={`${row}-${col}`}
-                          style={{
-                            gridRow: row + 1,
-                            gridColumn: col + 1,
-                            width: `${boardCellSize}px`,
-                            height: `${boardCellSize}px`,
-                            borderRadius: getTrayCellRadius(row, col),
-                            background: tetromino.color,
-                            color: "#fff",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: isCompactPhone ? "0.92rem" : "1.05rem",
-                            fontWeight: 900,
-                            textShadow: "0 1px 2px rgba(0, 0, 0, 0.45)",
-                          }}
-                        >
-                          {
-                            piece.cells.find(
-                              (cellCell) => cellCell.deltaRow === row && cellCell.deltaCol === col,
-                            )?.number
-                          }
-                        </span>
-                      ))}
+                    <div className={`tray-piece-grid ${trayGridClass}`}>
+                      {shape.map(([row, col]) => {
+                        const hasAbove = shapeCellKeys.has(`${row - 1}-${col}`);
+                        const hasRight = shapeCellKeys.has(`${row}-${col + 1}`);
+                        const hasBelow = shapeCellKeys.has(`${row + 1}-${col}`);
+                        const hasLeft = shapeCellKeys.has(`${row}-${col - 1}`);
+                        const adjacencyClass = [
+                          "tray-piece-cell-filled",
+                          hasAbove ? "tray-has-above" : "",
+                          hasRight ? "tray-has-right" : "",
+                          hasBelow ? "tray-has-below" : "",
+                          hasLeft ? "tray-has-left" : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ");
+
+                        return (
+                          <span
+                            key={`${row}-${col}`}
+                            className={`tray-piece-cell tray-cell-r${row + 1} tray-cell-c${col + 1} ${trayColorClass} ${adjacencyClass}`}
+                          >
+                            {
+                              piece.cells.find(
+                                (cellCell) =>
+                                  cellCell.deltaRow === row && cellCell.deltaCol === col,
+                              )?.number
+                            }
+                          </span>
+                        );
+                      })}
                     </div>
                   </button>
                 );
@@ -843,112 +580,25 @@ export const App = () => {
       </div>
 
       {isSolved ? (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 20,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(8, 12, 24, 0.76)",
-            backdropFilter: "blur(2px)",
-          }}
-        >
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              overflow: "hidden",
-              pointerEvents: "none",
-            }}
-            aria-hidden="true"
-          >
-            {fireworks.map((spark) => (
+        <div className="solved-overlay">
+          <div className="solved-fireworks" aria-hidden="true">
+            {fireworks.map((sparkIndex) => (
               <span
-                key={spark.id}
-                style={
-                  {
-                    position: "absolute",
-                    left: spark.left,
-                    top: spark.top,
-                    width: `${spark.size}px`,
-                    height: `${spark.size}px`,
-                    borderRadius: "999px",
-                    background: spark.color,
-                    boxShadow: `0 0 14px ${spark.color}`,
-                    animationName: "firework-burst",
-                    animationDuration: `${spark.duration}s`,
-                    animationDelay: `${spark.delay}s`,
-                    animationTimingFunction: "ease-out",
-                    animationIterationCount: "infinite",
-                    ["--dx" as string]: `${spark.dx}px`,
-                    ["--dy" as string]: `${spark.dy}px`,
-                  } as CSSProperties
-                }
+                key={sparkIndex}
+                className={`solved-spark solved-spark-left-${sparkIndex % 12} solved-spark-top-${sparkIndex % 10} solved-spark-size-${sparkIndex % 4} solved-spark-color-${sparkIndex % 6} solved-spark-delay-${sparkIndex % 12} solved-spark-duration-${sparkIndex % 5} solved-spark-drift-${sparkIndex % 8}`}
               />
             ))}
           </div>
 
-          <div
-            style={{
-              position: "relative",
-              zIndex: 1,
-              textAlign: "center",
-              padding: "26px 30px",
-              borderRadius: "24px",
-              background: "rgba(16, 22, 38, 0.85)",
-              border: "1px solid rgba(255, 255, 255, 0.2)",
-              boxShadow: "0 24px 80px rgba(0, 0, 0, 0.45)",
-              animation: "solved-pop 320ms ease-out",
-            }}
-          >
-            <h2
-              style={{
-                margin: "0 0 12px",
-                fontSize: "clamp(2.2rem, 8vw, 5rem)",
-                lineHeight: 1,
-                color: "#fef08a",
-                textShadow: "0 6px 24px rgba(254, 240, 138, 0.38)",
-              }}
-            >
-              Solved!
-            </h2>
-            <button type="button" onClick={() => startGeneration()} style={buttonStyle}>
-              Retry
+          <div className="solved-dialog">
+            <h2 className="solved-title">Solved!</h2>
+            <p>Thanks for playing!</p>
+            <button type="button" onClick={() => startGeneration()} className="app-button">
+              Play again
             </button>
           </div>
         </div>
       ) : null}
     </div>
   );
-};
-
-const buttonStyle: CSSProperties = {
-  border: "none",
-  borderRadius: "999px",
-  padding: "12px 18px",
-  fontWeight: 700,
-  color: "#0f1425",
-  background: "#f8f9fa",
-  cursor: "pointer",
-};
-
-const trayButtonStyle: CSSProperties = {
-  ...buttonStyle,
-  width: "100%",
-  borderRadius: "0",
-  display: "flex",
-  gap: "12px",
-  textAlign: "left",
-};
-
-const selectStyle: CSSProperties = {
-  border: "1px solid rgba(255, 255, 255, 0.28)",
-  borderRadius: "999px",
-  padding: "10px 14px",
-  fontWeight: 700,
-  color: "#f8f9fa",
-  background: "rgba(15, 20, 37, 0.65)",
-  cursor: "pointer",
 };

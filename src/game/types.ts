@@ -43,7 +43,5 @@ export type RandomFillArrangement = {
 
 export type Tetromino = {
   id: string;
-  name: string;
-  color: string;
   shape: Point[];
 };
