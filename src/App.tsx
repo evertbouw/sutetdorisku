@@ -28,6 +28,8 @@ import {
   toCellKey,
 } from "./game/utils";
 
+const PIECE_DRAG_DATA_TYPE = "application/x-sutetdorisku-piece";
+
 export const App = () => {
   type Difficulty = keyof typeof DIFFICULTY_CLUE_PIECES;
 
@@ -295,7 +297,9 @@ export const App = () => {
     setActiveDrag(null);
   };
 
-  const dropPieceIntoTray = () => {
+  const dropPieceIntoTray = (event: React.DragEvent<HTMLElement>) => {
+    event.preventDefault();
+
     if (!activeDrag || activeDrag.source !== "board") {
       return;
     }
@@ -319,11 +323,13 @@ export const App = () => {
 
   const onTrayDragOver = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
   };
 
   const startTrayDrag = (event: React.DragEvent<HTMLButtonElement>, piece: PlacedPiece) => {
     const shape = getPieceShape(piece);
-    event.dataTransfer.setData("text/plain", piece.pieceInstanceId);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData(PIECE_DRAG_DATA_TYPE, piece.pieceInstanceId);
 
     setActiveDrag({
       source: "tray",
@@ -346,7 +352,8 @@ export const App = () => {
       return;
     }
 
-    event.dataTransfer.setData("text/plain", pieceInstanceId);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData(PIECE_DRAG_DATA_TYPE, pieceInstanceId);
 
     const shape = getPieceShape(piece);
     setActiveDrag({ source: "board", pieceInstanceId, shape });
@@ -366,6 +373,7 @@ export const App = () => {
     colIndex: number,
   ) => {
     event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
 
     if (!activeDrag) {
       return;
